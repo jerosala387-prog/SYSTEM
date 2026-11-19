@@ -3,47 +3,148 @@ import unicodedata
 import pandas as pd
 import streamlit as st
 
+# ---------------------------------------------------------------------------
 # Configuración de la página
+# ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="xShots Quantitative Scanner • Pro",
+    page_title="xShots Scanner",
     page_icon="⚽",
     layout="wide",
 )
 
-# Estilos visuales modernos (Dark Mode tipo Trading)
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-color: #0d1117;
-        color: #f8fafc;
-    }
-    div[data-testid="metric-container"] {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        padding: 15px;
-        border-radius: 10px;
-    }
-    .main-title {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #ffffff;
-    }
-    .sub-title {
-        color: #8b949e;
-        margin-bottom: 20px;
-    }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+# ---------------------------------------------------------------------------
+# Estilos
+# ---------------------------------------------------------------------------
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg: #0c111b;
+  --surface: #131a28;
+  --surface-2: #19223a;
+  --line: #243049;
+  --text: #e9eef7;
+  --muted: #8b98b0;
+  --accent: #6c8cff;
+  --over: #2fd4a4;
+  --under: #ff7d6e;
+  --neutral: #8b98b0;
+}
+
+html, body, .stApp, [class*="css"] {
+  font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.stApp {
+  background: radial-gradient(1200px 500px at 10% -10%, #17223d 0%, var(--bg) 55%);
+  color: var(--text);
+}
+.block-container { padding-top: 2.2rem; padding-bottom: 4rem; max-width: 1200px; }
+#MainMenu, footer { visibility: hidden; }
+header[data-testid="stHeader"] { background: transparent; }
+
+/* Encabezado */
+.app-title {
+  font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--text); margin: 0; line-height: 1.1;
+}
+.app-sub { color: var(--muted); margin: 6px 0 18px 0; font-size: 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+.chip {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; font-size: .85rem; color: var(--muted);
+}
+.chip b { color: var(--text); font-weight: 700; margin-left: 4px; }
+
+/* Títulos de sección */
+h2, h3, .stMarkdown h2, .stMarkdown h3 {
+  font-weight: 700 !important; letter-spacing: -0.01em; color: var(--text) !important;
+}
+.sec-title { font-size: 1.25rem; font-weight: 700; margin: 28px 0 14px 0; color: var(--text); }
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  background: var(--surface); border-right: 1px solid var(--line);
+}
+section[data-testid="stSidebar"] * { color: var(--text); }
+
+/* Inputs */
+div[data-baseweb="input"], div[data-baseweb="select"] > div {
+  background-color: var(--surface-2) !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--line) !important;
+}
+div[data-baseweb="input"]:focus-within, div[data-baseweb="select"] > div:focus-within {
+  border-color: var(--accent) !important;
+}
+label, .stNumberInput label, .stSelectbox label { color: var(--muted) !important; font-weight: 600 !important; }
+
+/* Contenedores de partido */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--surface);
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+}
+
+/* Tarjetas de resultado */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.tc {
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 4px solid var(--neutral);
+  border-radius: 16px; padding: 18px 20px;
+}
+.tc.over-fuerte  { border-left-color: var(--over); }
+.tc.over-leve    { border-left-color: rgba(47,212,164,.55); }
+.tc.under-fuerte { border-left-color: var(--under); }
+.tc.under-leve   { border-left-color: rgba(255,125,110,.55); }
+
+.tc-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.tc-role { color: var(--muted); font-size: .85rem; }
+.pill {
+  font-size: .78rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: rgba(139,152,176,.15); color: var(--neutral); white-space: nowrap;
+}
+.over-fuerte .pill  { background: rgba(47,212,164,.18);  color: var(--over); }
+.over-leve .pill    { background: rgba(47,212,164,.10);  color: #7fe6c6; }
+.under-fuerte .pill { background: rgba(255,125,110,.18); color: var(--under); }
+.under-leve .pill   { background: rgba(255,125,110,.10); color: #ffaa9f; }
+
+.tc-name { font-size: 1.15rem; font-weight: 700; margin: 8px 0 14px 0; color: var(--text); }
+.tc-nums { display: flex; align-items: flex-end; gap: 26px; flex-wrap: wrap; }
+.num-big { font-size: 2.6rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.num-mid { font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.cap { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+.over-fuerte .num-big, .over-leve .num-big { color: var(--over); }
+.under-fuerte .num-big, .under-leve .num-big { color: var(--under); }
+
+/* Barra de diferencia */
+.bar { position: relative; height: 8px; background: var(--surface-2); border-radius: 99px; margin: 18px 0 10px 0; }
+.bar .tick { position: absolute; left: 50%; top: -3px; width: 2px; height: 14px; background: var(--muted); opacity: .6; }
+.bar .fill { position: absolute; top: 0; height: 8px; border-radius: 99px; background: var(--neutral); }
+.over-fuerte .fill, .over-leve .fill { background: var(--over); }
+.under-fuerte .fill, .under-leve .fill { background: var(--under); }
+.bar-scale { display: flex; justify-content: space-between; color: var(--muted); font-size: .72rem; }
+.verdict { color: var(--text); font-size: .92rem; margin-top: 12px; opacity: .9; }
+
+/* Tabla */
+div[data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+
+/* Mensajes */
+div[data-testid="stAlert"] { border-radius: 12px; }
+
+hr { border-color: var(--line) !important; }
+
+@media (max-width: 640px) {
+  .app-title { font-size: 1.6rem; }
+  .num-big { font-size: 2.1rem; }
+}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
 
 st.markdown(
-    '<div class="main-title">⚽ xShots Quantitative Scanner</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<div class="sub-title">Análisis de Valor por Equipo & Edge de Mercado</div>',
+    '<p class="app-title">xShots Scanner</p>'
+    '<p class="app-sub">Tiros proyectados por equipo frente a la línea de la casa.</p>',
     unsafe_allow_html=True,
 )
 
@@ -153,29 +254,63 @@ def diagnostico(dif):
     return "⚖️ SIN VALOR"
 
 
-def mostrar_veredicto(equipo, xs, linea):
-    """Muestra si la línea de la casa es buena opción comparada con la proyección."""
-    dif = xs - linea
-    texto = (
-        f"**{equipo}** — Proyección: **{xs:.2f}** vs Línea: **{linea}** "
-        f"(Edge {dif:+.2f}) → {diagnostico(dif)}"
-    )
+def clasificar(dif):
+    """Devuelve (clase css, etiqueta, texto del veredicto)."""
     if dif >= 1.5:
-        st.success(texto + "\n\nBuena opción: la proyección está muy por encima de la línea (**OVER**).")
-    elif dif >= 0.5:
-        st.success(texto + "\n\nOpción moderada: ligera ventaja al **OVER**.")
-    elif dif <= -1.5:
-        st.error(texto + "\n\nBuena opción al lado contrario: la proyección está muy por debajo de la línea (**UNDER**).")
-    elif dif <= -0.5:
-        st.warning(texto + "\n\nOpción moderada: ligera ventaja al **UNDER**.")
-    else:
-        st.info(texto + "\n\nNo recomendable: la línea está muy ajustada a la proyección, sin valor claro.")
+        return "over-fuerte", "Over muy claro", "Buena opción: la proyección supera la línea por bastante."
+    if dif >= 0.5:
+        return "over-leve", "Over ligero", "Ventaja moderada al over."
+    if dif <= -1.5:
+        return "under-fuerte", "Under claro", "Buena opción al under: la proyección queda muy por debajo de la línea."
+    if dif <= -0.5:
+        return "under-leve", "Under ligero", "Ventaja moderada al under."
+    return "neutro", "Sin valor", "La línea coincide con la proyección: no hay ventaja clara."
 
 
-# --- SIDEBAR: SELECCIÓN DE LIGA Y MODO ---
-st.sidebar.header("⚙️ Configuración General")
+def tarjeta(equipo, rol, xs, linea):
+    """HTML de una tarjeta de resultado (sin sangrías para que Markdown no la rompa)."""
+    dif = xs - linea
+    clase, etiqueta, texto = clasificar(dif)
+    tope = 4.0
+    pos = 50 + max(-tope, min(tope, dif)) / tope * 50
+    izq = min(50, pos)
+    ancho = abs(pos - 50)
+    return (
+        f'<div class="tc {clase}">'
+        f'<div class="tc-top"><span class="tc-role">{rol}</span><span class="pill">{etiqueta}</span></div>'
+        f'<div class="tc-name">{equipo}</div>'
+        f'<div class="tc-nums">'
+        f'<div><div class="num-big">{xs:.2f}</div><div class="cap">Tiros proyectados</div></div>'
+        f'<div><div class="num-mid">{linea}</div><div class="cap">Línea de la casa</div></div>'
+        f'<div><div class="num-mid">{dif:+.2f}</div><div class="cap">Diferencia</div></div>'
+        f'</div>'
+        f'<div class="bar"><div class="tick"></div><div class="fill" style="left:{izq:.1f}%;width:{ancho:.1f}%"></div></div>'
+        f'<div class="bar-scale"><span>Under</span><span>Over</span></div>'
+        f'<div class="verdict">{texto}</div>'
+        f'</div>'
+    )
+
+
+def color_edge(v):
+    if v >= 0.5:
+        return "color: #2fd4a4; font-weight: 700"
+    if v <= -0.5:
+        return "color: #ff7d6e; font-weight: 700"
+    return "color: #8b98b0"
+
+
+def estilizar(tabla):
+    st_ = tabla.style
+    aplicar = getattr(st_, "map", None) or st_.applymap
+    return aplicar(color_edge, subset=["Diferencia (Edge)"])
+
+
+# ---------------------------------------------------------------------------
+# Sidebar: liga y modo
+# ---------------------------------------------------------------------------
+st.sidebar.markdown("### Configuración")
 liga_seleccionada = st.sidebar.selectbox(
-    "🌍 Selecciona la Liga:", ["Bundesliga 🇩🇪", "Brasileirão 🇧🇷"]
+    "Liga", ["Bundesliga 🇩🇪", "Brasileirão 🇧🇷"]
 )
 
 if "Bundesliga" in liga_seleccionada:
@@ -186,13 +321,14 @@ else:
     nombre_liga = "Brasileirão"
 
 modo = st.sidebar.radio(
-    "Modo de análisis:", ["📋 Escáner de Jornada Completa", "🔍 Partido Individual"]
+    "Modo de análisis", ["📋 Escáner de Jornada Completa", "🔍 Partido Individual"]
 )
 
 if df is None or "Equipo" not in df.columns or df.empty:
     st.error(
-        f"No se pudo cargar o interpretar correctamente el archivo para"
-        f" **{nombre_liga}**. Revisa que el archivo exista en la carpeta."
+        f"No se pudo cargar el archivo de **{nombre_liga}**. "
+        "Revisa que el Excel esté en la misma carpeta que app.py y que sus hojas "
+        "tengan las columnas de equipo, partidos y tiros."
     )
 else:
     equipos = sorted(df["Equipo"].unique())
@@ -201,47 +337,62 @@ else:
     prom_liga_local = df["Tiros Hechos (local)"].sum() / df["PJ (Local)"].sum()
     prom_liga_visita = df["Tiros Hechos (visita)"].sum() / df["PJ (Visita)"].sum()
 
+    st.markdown(
+        '<div class="chips">'
+        f'<span class="chip">Liga<b>{nombre_liga}</b></span>'
+        f'<span class="chip">Equipos<b>{len(equipos)}</b></span>'
+        f'<span class="chip">Promedio de local<b>{prom_liga_local:.1f} tiros</b></span>'
+        f'<span class="chip">Promedio de visitante<b>{prom_liga_visita:.1f} tiros</b></span>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # -----------------------------------------------------------------------
+    # MODO 1: escáner de jornada
+    # -----------------------------------------------------------------------
     if modo == "📋 Escáner de Jornada Completa":
-        st.subheader(f"📋 Diagnóstico de la Fecha — {nombre_liga}")
+        st.markdown(
+            f'<div class="sec-title">Jornada de {nombre_liga}</div>',
+            unsafe_allow_html=True,
+        )
 
         num_partidos = st.sidebar.slider(
-            "Número de partidos:", 1, max(1, len(equipos) // 2), min(5, len(equipos) // 2)
+            "Número de partidos", 1, max(1, len(equipos) // 2), min(5, len(equipos) // 2)
         )
         jornada_evaluada = []
 
         for i in range(num_partidos):
-            st.markdown(f"**Partido {i+1}**")
-            c1, c2 = st.columns(2)
+            with st.container(border=True):
+                st.markdown(f"**Partido {i+1}**")
+                c1, c2 = st.columns(2)
 
-            with c1:
-                loc = st.selectbox(
-                    f"Local P{i+1}", equipos, index=(i * 2) % len(equipos), key=f"loc_{i}"
-                )
-                linea_loc = st.number_input(
-                    f"Línea {loc}", value=13.5, step=0.5, key=f"lin_l_{i}"
-                )
-                cuota_loc = st.number_input(
-                    f"Cuota {loc}", value=1.85, step=0.05, key=f"cuo_l_{i}"
-                )
+                with c1:
+                    loc = st.selectbox(
+                        f"Local P{i+1}", equipos, index=(i * 2) % len(equipos), key=f"loc_{i}"
+                    )
+                    linea_loc = st.number_input(
+                        f"Línea {loc}", value=13.5, step=0.5, key=f"lin_l_{i}"
+                    )
+                    cuota_loc = st.number_input(
+                        f"Cuota {loc}", value=1.85, step=0.05, key=f"cuo_l_{i}"
+                    )
 
-            with c2:
-                vis = st.selectbox(
-                    f"Visitante P{i+1}",
-                    equipos,
-                    index=(i * 2 + 1) % len(equipos),
-                    key=f"vis_{i}",
-                )
-                linea_vis = st.number_input(
-                    f"Línea {vis}", value=10.5, step=0.5, key=f"lin_v_{i}"
-                )
-                cuota_vis = st.number_input(
-                    f"Cuota {vis}", value=1.85, step=0.05, key=f"cuo_v_{i}"
-                )
+                with c2:
+                    vis = st.selectbox(
+                        f"Visitante P{i+1}",
+                        equipos,
+                        index=(i * 2 + 1) % len(equipos),
+                        key=f"vis_{i}",
+                    )
+                    linea_vis = st.number_input(
+                        f"Línea {vis}", value=10.5, step=0.5, key=f"lin_v_{i}"
+                    )
+                    cuota_vis = st.number_input(
+                        f"Cuota {vis}", value=1.85, step=0.05, key=f"cuo_v_{i}"
+                    )
 
             if loc != vis:
-                xs_l, xs_v = proyectar(
-                    df, loc, vis, prom_liga_local, prom_liga_visita
-                )
+                xs_l, xs_v = proyectar(df, loc, vis, prom_liga_local, prom_liga_visita)
                 dif_l = xs_l - linea_loc
                 dif_v = xs_v - linea_vis
 
@@ -270,48 +421,82 @@ else:
                     }
                 )
 
-            st.markdown("---")
-
         if jornada_evaluada:
-            st.subheader("🎯 Ranking General de Apuestas")
             df_resumen = pd.DataFrame(jornada_evaluada).sort_values(
                 by="Diferencia (Edge)", ascending=False
             )
-            st.dataframe(df_resumen, use_container_width=True)
 
+            # Mejores oportunidades (las de mayor diferencia, en cualquier sentido)
+            destacadas = df_resumen[df_resumen["Diferencia (Edge)"].abs() >= 0.5]
+            destacadas = destacadas.reindex(
+                destacadas["Diferencia (Edge)"].abs().sort_values(ascending=False).index
+            ).head(4)
+
+            st.markdown(
+                '<div class="sec-title">Mejores oportunidades</div>',
+                unsafe_allow_html=True,
+            )
+            if destacadas.empty:
+                st.info("Ninguna línea se separa lo suficiente de la proyección en esta jornada.")
+            else:
+                html = '<div class="cards">'
+                for _, r in destacadas.iterrows():
+                    html += tarjeta(
+                        r["Equipo"],
+                        f'{r["Condición"]}, frente a {r["Rival"]}',
+                        r["Tiros Proyectados"],
+                        r["Línea Casa"],
+                    )
+                html += "</div>"
+                st.markdown(html, unsafe_allow_html=True)
+
+            st.markdown(
+                '<div class="sec-title">Ranking completo</div>',
+                unsafe_allow_html=True,
+            )
+            st.dataframe(
+                estilizar(df_resumen),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Tiros Proyectados": st.column_config.NumberColumn(format="%.2f"),
+                    "Línea Casa": st.column_config.NumberColumn(format="%.1f"),
+                    "Diferencia (Edge)": st.column_config.NumberColumn(format="%+.2f"),
+                    "Cuota Over": st.column_config.NumberColumn(format="%.2f"),
+                },
+            )
+
+    # -----------------------------------------------------------------------
+    # MODO 2: partido individual
+    # -----------------------------------------------------------------------
     else:
-        st.subheader(f"🔍 Partido Individual — {nombre_liga}")
+        st.markdown(
+            f'<div class="sec-title">Partido individual en {nombre_liga}</div>',
+            unsafe_allow_html=True,
+        )
         c_l, c_v = st.sidebar.columns(2)
         with c_l:
             local = st.selectbox("Local", equipos, index=0)
         with c_v:
             visitante = st.selectbox("Visitante", equipos, index=1)
 
-        linea_loc_ind = st.sidebar.number_input(
-            f"Línea {local}", value=13.5, step=0.5
-        )
-        linea_vis_ind = st.sidebar.number_input(
-            f"Línea {visitante}", value=10.5, step=0.5
-        )
+        linea_loc_ind = st.sidebar.number_input(f"Línea {local}", value=13.5, step=0.5)
+        linea_vis_ind = st.sidebar.number_input(f"Línea {visitante}", value=10.5, step=0.5)
 
         if local != visitante:
-            xs_l, xs_v = proyectar(
-                df, local, visitante, prom_liga_local, prom_liga_visita
+            xs_l, xs_v = proyectar(df, local, visitante, prom_liga_local, prom_liga_visita)
+
+            st.markdown(
+                '<div class="cards">'
+                + tarjeta(local, "Local", xs_l, linea_loc_ind)
+                + tarjeta(visitante, "Visitante", xs_v, linea_vis_ind)
+                + "</div>",
+                unsafe_allow_html=True,
             )
+            st.caption(
+                "Diferencia = tiros proyectados menos la línea. Positiva favorece al over, negativa al under."
+            )
+        else:
+            st.warning("Elige dos equipos distintos.")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric(f"Tiros Esperados {local}", f"{xs_l:.2f}")
-                st.write(
-                    f"**Línea:** {linea_loc_ind} | **Edge:** {xs_l - linea_loc_ind:+.2f}"
-                )
-            with col2:
-                st.metric(f"Tiros Esperados {visitante}", f"{xs_v:.2f}")
-                st.write(
-                    f"**Línea:** {linea_vis_ind} | **Edge:** {xs_v - linea_vis_ind:+.2f}"
-                )
-
-            st.markdown("### 🎯 ¿Es buena opción la línea de la casa?")
-            mostrar_veredicto(local, xs_l, linea_loc_ind)
-            mostrar_veredicto(visitante, xs_v, linea_vis_ind)
        #python -m streamlit run app.py
