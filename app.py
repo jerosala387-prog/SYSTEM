@@ -476,6 +476,9 @@ st.markdown(
 # ---------------------------------------------------------------------------
 EXCEL_BUNDESLIGA = "tiros_bundr.xlsx"
 EXCEL_BRASIL = "Tiros Brasil .xlsx"
+EXCEL_SERIE_A = "serieA.TIROS.xlsx"
+EXCEL_LA_LIGA = "tiros_liga_santander.xlsx"
+EXCEL_PREMIER = "tiros_premier_league.xlsx"
 
 COLS = [
     "PJ (Local)",
@@ -655,14 +658,33 @@ def render_grid_tarjetas(filas):
 # Sidebar y flujo principal
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("### Configuración")
-liga_seleccionada = st.sidebar.selectbox("Liga", ["Bundesliga 🇩🇪", "Brasileirão 🇧🇷"])
+
+liga_seleccionada = st.sidebar.selectbox(
+    "Liga",
+    [
+        "Bundesliga 🇩🇪",
+        "Brasileirão 🇧🇷",
+        "Serie A 🇮🇹",
+        "Liga Santander 🇪🇸",
+        "Premier League 🏴",
+    ],
+)
 
 if "Bundesliga" in liga_seleccionada:
     df = cargar_y_normalizar_datos(EXCEL_BUNDESLIGA)
     nombre_liga = "Bundesliga"
-else:
+elif "Brasileirão" in liga_seleccionada:
     df = cargar_y_normalizar_datos(EXCEL_BRASIL)
     nombre_liga = "Brasileirão"
+elif "Serie A" in liga_seleccionada:
+    df = cargar_y_normalizar_datos(EXCEL_SERIE_A)
+    nombre_liga = "Serie A"
+elif "Liga Santander" in liga_seleccionada:
+    df = cargar_y_normalizar_datos(EXCEL_LA_LIGA)
+    nombre_liga = "Liga Santander"
+else:
+    df = cargar_y_normalizar_datos(EXCEL_PREMIER)
+    nombre_liga = "Premier League"
 
 modo = st.sidebar.radio(
     "Modo de análisis", ["📋 Escáner de Jornada Completa", "🔍 Partido Individual"]
