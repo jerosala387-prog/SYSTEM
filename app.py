@@ -211,49 +211,49 @@ section[data-testid="stSidebar"],
    MENÚ DESPLEGADO DE TODOS LOS SELECTORES
    ============================================================ */
 
-/* Fondo del menú */
+/* Fondo oscuro del menú para que el texto blanco tenga contraste */
 div[data-baseweb="popover"],
 div[data-baseweb="popover"] > div,
 div[data-baseweb="popover"] ul,
 ul[role="listbox"] {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  background: #1f2937 !important;
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
 }
 
-/* Todas las opciones */
+/* Todas las opciones: texto blanco */
 li[role="option"],
 li[role="option"] > div,
 li[role="option"] span,
 li[role="option"] div {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+  background: #1f2937 !important;
+  background-color: #1f2937 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   opacity: 1 !important;
 }
 
 /* Hover de las opciones */
 li[role="option"]:hover,
 li[role="option"]:hover > div {
-  background: #f1f5f9 !important;
-  background-color: #f1f5f9 !important;
+  background: #374151 !important;
+  background-color: #374151 !important;
 }
 
 /* Opción seleccionada */
 li[role="option"][aria-selected="true"],
 li[role="option"][aria-selected="true"] > div {
-  background: #f1f5f9 !important;
-  background-color: #f1f5f9 !important;
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+  background: #374151 !important;
+  background-color: #374151 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* Texto de las opciones */
 [role="listbox"] *,
 [role="option"] * {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* Eliminar opacidades heredadas */
