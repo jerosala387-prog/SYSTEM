@@ -1,5 +1,9 @@
+from datetime import datetime
+import json
 import math
+import os
 import unicodedata
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
@@ -118,6 +122,26 @@ label *,
   -webkit-text-fill-color: #000000 !important;
   font-weight: 600 !important;
   opacity: 1 !important;
+}
+
+/* Botones en tema claro con texto legible */
+.stButton > button,
+.stButton > button * {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  opacity: 1 !important;
+}
+
+.stButton > button {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+}
+
+.stButton > button:hover {
+  border-color: #2563eb !important;
+  background-color: #f8fafc !important;
 }
 
 /* ============================================================
@@ -264,9 +288,12 @@ li[role="option"][aria-selected="true"] > div {
 }
 
 /* ============================================================
-   INPUTS NUMÉRICOS: FONDO BLANCO Y TEXTO NEGRO
+   INPUTS DE TEXTO Y NUMÉRICOS: FONDO BLANCO Y TEXTO NEGRO
    ============================================================ */
 
+[data-testid="stTextInput"],
+[data-testid="stTextInput"] *,
+[data-testid="stTextInput"] input,
 [data-testid="stNumberInput"],
 [data-testid="stNumberInput"] *,
 [data-testid="stNumberInput"] input,
@@ -277,6 +304,7 @@ li[role="option"][aria-selected="true"] > div {
   opacity: 1 !important;
 }
 
+[data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] [data-baseweb="input"],
 [data-testid="stNumberInput"] [data-baseweb="input"] > div,
 [data-testid="stNumberInput"] input,
@@ -286,6 +314,7 @@ li[role="option"][aria-selected="true"] > div {
   border-color: #cbd5e1 !important;
 }
 
+[data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] [data-baseweb="input"] {
   border: 1px solid #cbd5e1 !important;
   border-radius: 10px !important;
@@ -453,6 +482,31 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
   font-variant-numeric: tabular-nums;
 }
 
+.saved-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.saved-league-badge {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.saved-meta {
+  color: #64748b;
+  font-size: .85rem;
+}
+
 div[data-testid="stAlert"] { border-radius: 12px; }
 hr { border-color: #e2e8f0 !important; }
 
@@ -472,13 +526,23 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# Datos y cálculos
+# Datos, persistencia y cálculos
 # ---------------------------------------------------------------------------
 EXCEL_BUNDESLIGA = "tiros_bundr.xlsx"
 EXCEL_BRASIL = "Tiros Brasil .xlsx"
 EXCEL_SERIE_A = "serieA.TIROS.xlsx"
-EXCEL_LA_LIGA = "tiros_liga_santander.xlsx"
+EXCEL_LA_LIGA = "LaLiga-tiros.xlsx"
 EXCEL_PREMIER = "tiros_premier_league.xlsx"
+
+ARCHIVO_JORNADAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jornadas_guardadas.json")
+
+LIGAS_DISPONIBLES = [
+    ("Bundesliga 🇩🇪", "Bundesliga", EXCEL_BUNDESLIGA),
+    ("Brasileirão 🇧🇷", "Brasileirão", EXCEL_BRASIL),
+    ("Serie A 🇮🇹", "Serie A", EXCEL_SERIE_A),
+    ("Liga Santander 🇪🇸", "Liga Santander", EXCEL_LA_LIGA),
+    ("Premier League 🏴", "Premier League", EXCEL_PREMIER),
+]
 
 COLS = [
     "PJ (Local)",
@@ -499,6 +563,61 @@ ALIAS = {
     "RB LEIPZIG": "LEIPZIG",
     "VFB STUTTGART": "STUTTGART",
 }
+
+
+def cargar_jornadas_guardadas():
+    """Lee las jornadas guardadas en disco; si no existe, devuelve lista vacía."""
+    if not os.path.exists(ARCHIVO_JORNADAS):
+        return []
+    try:
+        with open(ARCHIVO_JORNADAS, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def guardar_jornadas_en_disco(jornadas):
+    """Guarda la lista completa de jornadas en JSON en la carpeta del proyecto."""
+    with open(ARCHIVO_JORNADAS, "w", encoding="utf-8") as f:
+        json.dump(jornadas, f, ensure_ascii=False, indent=2)
+
+
+def registrar_jornada(nombre_liga, etiqueta_jornada, filas):
+    """Agrega una nueva jornada clasificada por liga y la persiste en JSON."""
+    jornadas = cargar_jornadas_guardadas()
+    nueva = {
+        "id": str(uuid4()),
+        "liga": nombre_liga,
+        "titulo": etiqueta_jornada.strip() if etiqueta_jornada.strip() else f"Jornada — {nombre_liga}",
+        "guardada_en": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "filas": [
+            {
+                "Equipo": r["Equipo"],
+                "Condición": r["Condición"],
+                "Rival": r["Rival"],
+                "Tiros Proyectados": float(r["Tiros Proyectados"]),
+                "Línea Casa": float(r["Línea Casa"]),
+                "Diferencia (Edge)": float(r["Diferencia (Edge)"]),
+            }
+            for r in filas
+        ],
+    }
+    jornadas.insert(0, nueva)
+    guardar_jornadas_en_disco(jornadas)
+    return nueva
+
+
+def eliminar_jornada_por_id(jornada_id):
+    jornadas = cargar_jornadas_guardadas()
+    filtradas = [j for j in jornadas if j.get("id") != jornada_id]
+    guardar_jornadas_en_disco(filtradas)
+
+
+def eliminar_jornadas_de_liga(nombre_liga):
+    jornadas = cargar_jornadas_guardadas()
+    filtradas = [j for j in jornadas if j.get("liga") != nombre_liga]
+    guardar_jornadas_en_disco(filtradas)
 
 
 def normalizar_equipo(nombre):
@@ -534,28 +653,26 @@ def renombrar_columnas(df):
 
 
 @st.cache_data
-def cargar_y_normalizar_datos(path_excel):
+def cargar_y_normalizar_datos(path_excel, mtime):
     """Lee todas las hojas (temporadas), normaliza nombres y suma por equipo."""
-    try:
-        hojas = pd.read_excel(path_excel, sheet_name=None)
-        frames = []
-        for _, d in hojas.items():
-            d = renombrar_columnas(d)
-            if "Equipo" not in d.columns or not all(c in d.columns for c in COLS):
-                continue
-            d = d.dropna(subset=["Equipo"]).copy()
-            d["Equipo"] = d["Equipo"].map(normalizar_equipo)
-            for c in COLS:
-                d[c] = pd.to_numeric(d[c], errors="coerce").fillna(0)
-            frames.append(d[["Equipo"] + COLS])
-        if not frames:
-            return None
-        df = pd.concat(frames, ignore_index=True).groupby("Equipo", as_index=False)[COLS].sum()
-        df = df[(df["PJ (Local)"] > 0) & (df["PJ (Visita)"] > 0)].reset_index(drop=True)
-        return df
-    except Exception as e:
-        st.session_state["error_carga"] = f"{type(e).__name__}: {e}"
-        return None
+    hojas = pd.read_excel(path_excel, sheet_name=None)
+    frames = []
+    for _, d in hojas.items():
+        d = renombrar_columnas(d)
+        if "Equipo" not in d.columns or not all(c in d.columns for c in COLS):
+            continue
+        d = d.dropna(subset=["Equipo"]).copy()
+        d["Equipo"] = d["Equipo"].map(normalizar_equipo)
+        for c in COLS:
+            d[c] = pd.to_numeric(d[c], errors="coerce").fillna(0)
+        frames.append(d[["Equipo"] + COLS])
+    if not frames:
+        raise ValueError("Ninguna hoja contiene las columnas requeridas de equipo, PJ y tiros.")
+    df = pd.concat(frames, ignore_index=True).groupby("Equipo", as_index=False)[COLS].sum()
+    df = df[(df["PJ (Local)"] > 0) & (df["PJ (Visita)"] > 0)].reset_index(drop=True)
+    if df.empty:
+        raise ValueError("El archivo no tiene equipos con PJ (Local) > 0 y PJ (Visita) > 0.")
+    return df
 
 
 def prob_over_poisson(lam, linea):
@@ -577,7 +694,7 @@ def prob_over_poisson(lam, linea):
 
 
 def proyectar(df, local, visitante, prom_local, prom_visita):
-    """Devuelve (xShots local, xShots visitante)."""
+    """Fórmula multiplicativa directa: devuelve (xShots local, xShots visitante)."""
     dl = df[df["Equipo"] == local].iloc[0]
     dv = df[df["Equipo"] == visitante].iloc[0]
 
@@ -589,6 +706,20 @@ def proyectar(df, local, visitante, prom_local, prom_visita):
     xs_l = (tfl * tpv) / prom_local
     xs_v = (tfv * tpl) / prom_visita
     return xs_l, xs_v
+
+
+def linea_sugerida_media(xs):
+    """Redondea los tiros proyectados al .5 más cercano (ej. 12.2 -> 12.5, 11.8 -> 11.5)."""
+    val = max(0.5, float(xs))
+    return math.floor(val * 2.0 + 0.5) / 2.0
+
+
+def sincronizar_lineas_cruce(firma_key, firma_actual, key_l, xs_l, key_v, xs_v):
+    """Actualiza las líneas sugeridas solo cuando cambia el cruce (liga, local o visitante)."""
+    if st.session_state.get(firma_key) != firma_actual:
+        st.session_state[firma_key] = firma_actual
+        st.session_state[key_l] = linea_sugerida_media(xs_l)
+        st.session_state[key_v] = linea_sugerida_media(xs_v)
 
 
 def clasificar(dif):
@@ -603,7 +734,7 @@ def clasificar(dif):
     return "neutro", "Sin valor", "La línea coincide con la proyección: no hay ventaja clara."
 
 
-def tarjeta(equipo, rol, xs, linea, cuota=None):
+def tarjeta(equipo, rol, xs, linea):
     dif = xs - linea
     clase, etiqueta, texto = clasificar(dif)
     tope = 4.0
@@ -612,16 +743,9 @@ def tarjeta(equipo, rol, xs, linea, cuota=None):
     ancho = abs(pos - 50)
 
     p_ov = prob_over_poisson(xs, linea)
-    extra_html = ""
-    if cuota is not None:
-        ev_ov = (p_ov * cuota) - 1.0
-        extra_html = (
-            f'<div class="meta-line">'
-            f'Prob. Over: <b>{p_ov * 100:.1f}%</b> · '
-            f'Cuota Over: <b>{cuota:.2f}</b> · '
-            f'EV Over: <b>{ev_ov * 100:+.1f}%</b>'
-            f'</div>'
-        )
+    extra_html = (
+        f'<div class="meta-line">Prob. Over: <b>{p_ov * 100:.1f}%</b></div>'
+    )
 
     return (
         f'<div class="tc {clase}">'
@@ -648,10 +772,40 @@ def render_grid_tarjetas(filas):
             f'{r["Condición"]}, frente a {r["Rival"]}',
             r["Tiros Proyectados"],
             r["Línea Casa"],
-            cuota=r["Cuota Over"],
         )
     html += "</div>"
     st.markdown(html, unsafe_allow_html=True)
+
+
+def render_secciones_jornada(filas):
+    recomendadas = sorted(
+        [r for r in filas if r["Diferencia (Edge)"] >= 0.5],
+        key=lambda x: x["Diferencia (Edge)"],
+        reverse=True,
+    )
+    sin_valor = sorted(
+        [r for r in filas if -0.5 < r["Diferencia (Edge)"] < 0.5],
+        key=lambda x: abs(x["Diferencia (Edge)"]),
+        reverse=True,
+    )
+    under_no_recom = sorted(
+        [r for r in filas if r["Diferencia (Edge)"] <= -0.5],
+        key=lambda x: x["Diferencia (Edge)"],
+    )
+
+    st.markdown('<div class="sec-title">Recomendadas (Over)</div>', unsafe_allow_html=True)
+    if not recomendadas:
+        st.info("No hay líneas Over con ventaja clara (>= +0.5 tiros) en esta jornada.")
+    else:
+        render_grid_tarjetas(recomendadas)
+
+    if sin_valor:
+        st.markdown('<div class="sec-title">Sin valor claro</div>', unsafe_allow_html=True)
+        render_grid_tarjetas(sin_valor)
+
+    if under_no_recom:
+        st.markdown('<div class="sec-title">Under — No recomendadas</div>', unsafe_allow_html=True)
+        render_grid_tarjetas(under_no_recom)
 
 
 # ---------------------------------------------------------------------------
@@ -659,203 +813,280 @@ def render_grid_tarjetas(filas):
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("### Configuración")
 
-liga_seleccionada = st.sidebar.selectbox(
-    "Liga",
+opciones_liga_ui = [item[0] for item in LIGAS_DISPONIBLES]
+liga_seleccionada = st.sidebar.selectbox("Liga", opciones_liga_ui)
+
+_, nombre_liga, archivo_liga = next(
+    item for item in LIGAS_DISPONIBLES if item[0] == liga_seleccionada
+)
+
+todas_guardadas = cargar_jornadas_guardadas()
+total_guardadas = len(todas_guardadas)
+
+modo = st.sidebar.radio(
+    "Modo de análisis",
     [
-        "Bundesliga 🇩🇪",
-        "Brasileirão 🇧🇷",
-        "Serie A 🇮🇹",
-        "Liga Santander 🇪🇸",
-        "Premier League 🏴",
+        "📋 Escáner de Jornada Completa",
+        "🔍 Partido Individual",
+        f"💾 Jornadas Guardadas ({total_guardadas})",
     ],
 )
 
-if "Bundesliga" in liga_seleccionada:
-    df = cargar_y_normalizar_datos(EXCEL_BUNDESLIGA)
-    nombre_liga = "Bundesliga"
-elif "Brasileirão" in liga_seleccionada:
-    df = cargar_y_normalizar_datos(EXCEL_BRASIL)
-    nombre_liga = "Brasileirão"
-elif "Serie A" in liga_seleccionada:
-    df = cargar_y_normalizar_datos(EXCEL_SERIE_A)
-    nombre_liga = "Serie A"
-elif "Liga Santander" in liga_seleccionada:
-    df = cargar_y_normalizar_datos(EXCEL_LA_LIGA)
-    nombre_liga = "Liga Santander"
-else:
-    df = cargar_y_normalizar_datos(EXCEL_PREMIER)
-    nombre_liga = "Premier League"
-
-modo = st.sidebar.radio(
-    "Modo de análisis", ["📋 Escáner de Jornada Completa", "🔍 Partido Individual"]
-)
-
-if df is None or "Equipo" not in df.columns or df.empty:
-    st.error(
-        f"No se pudo cargar el archivo de **{nombre_liga}**. "
-        "Revisa que el Excel esté en la misma carpeta que la app y que sus hojas "
-        "tengan las columnas de equipo, partidos y tiros."
-    )
-    if "error_carga" in st.session_state:
-        st.caption(f"Detalle técnico: {st.session_state['error_carga']}")
-else:
-    equipos = sorted(df["Equipo"].unique())
-    prom_liga_local = df["Tiros Hechos (local)"].sum() / df["PJ (Local)"].sum()
-    prom_liga_visita = df["Tiros Hechos (visita)"].sum() / df["PJ (Visita)"].sum()
-
+if modo.startswith("💾 Jornadas Guardadas"):
     st.markdown(
-        '<div class="chips">'
-        f'<span class="chip">Liga<b>{nombre_liga}</b></span>'
-        f'<span class="chip">Equipos<b>{len(equipos)}</b></span>'
-        f'<span class="chip">Promedio de local<b>{prom_liga_local:.1f} tiros</b></span>'
-        f'<span class="chip">Promedio de visitante<b>{prom_liga_visita:.1f} tiros</b></span>'
-        "</div>",
+        '<div class="sec-title">Jornadas Guardadas por Liga</div>',
         unsafe_allow_html=True,
     )
 
-    if modo == "📋 Escáner de Jornada Completa":
-        st.markdown(
-            f'<div class="sec-title">Jornada de {nombre_liga}</div>',
-            unsafe_allow_html=True,
+    if not todas_guardadas:
+        st.info(
+            "Aún no has guardado ninguna jornada. Ve al **Escáner de Jornada Completa**, "
+            "arma los partidos y guarda la jornada para conservarla aquí indefinidamente."
         )
-
-        max_partidos = max(1, len(equipos) // 2)
-        num_partidos = st.sidebar.slider(
-            "Número de partidos", 1, max_partidos, min(5, max_partidos)
-        )
-        jornada_evaluada = []
-
-        for i in range(num_partidos):
-            with st.container(border=True):
-                st.markdown(f"**Partido {i+1}**")
-                c1, c2 = st.columns(2)
-
-                with c1:
-                    loc = st.selectbox(
-                        f"Local P{i+1}", equipos, index=(i * 2) % len(equipos), key=f"loc_{i}"
-                    )
-                    linea_loc = st.number_input(
-                        f"Línea {loc}", value=13.5, step=0.5, key=f"lin_l_{i}"
-                    )
-                    cuota_loc = st.number_input(
-                        f"Cuota Over {loc}", min_value=1.01, value=1.85, step=0.05, key=f"cuo_l_{i}"
-                    )
-
-                with c2:
-                    vis = st.selectbox(
-                        f"Visitante P{i+1}",
-                        equipos,
-                        index=(i * 2 + 1) % len(equipos),
-                        key=f"vis_{i}",
-                    )
-                    linea_vis = st.number_input(
-                        f"Línea {vis}", value=10.5, step=0.5, key=f"lin_v_{i}"
-                    )
-                    cuota_vis = st.number_input(
-                        f"Cuota Over {vis}", min_value=1.01, value=1.85, step=0.05, key=f"cuo_v_{i}"
-                    )
-
-                if loc == vis:
-                    st.caption("⚠️ Selecciona dos equipos distintos para proyectar este partido.")
-
-            if loc != vis:
-                xs_l, xs_v = proyectar(df, loc, vis, prom_liga_local, prom_liga_visita)
-                dif_l = xs_l - linea_loc
-                dif_v = xs_v - linea_vis
-
-                for eq, rol, rival, xs, lin, dif, cuo in [
-                    (f"{loc} (L)", "Local", vis, xs_l, linea_loc, dif_l, cuota_loc),
-                    (f"{vis} (V)", "Visitante", loc, xs_v, linea_vis, dif_v, cuota_vis),
-                ]:
-                    jornada_evaluada.append(
-                        {
-                            "Equipo": eq,
-                            "Condición": rol,
-                            "Rival": rival,
-                            "Tiros Proyectados": xs,
-                            "Línea Casa": lin,
-                            "Diferencia (Edge)": dif,
-                            "Cuota Over": cuo,
-                        }
-                    )
-
-        if jornada_evaluada:
-            recomendadas = sorted(
-                [r for r in jornada_evaluada if r["Diferencia (Edge)"] >= 0.5],
-                key=lambda x: x["Diferencia (Edge)"],
-                reverse=True,
-            )
-            sin_valor = sorted(
-                [r for r in jornada_evaluada if -0.5 < r["Diferencia (Edge)"] < 0.5],
-                key=lambda x: abs(x["Diferencia (Edge)"]),
-                reverse=True,
-            )
-            under_no_recom = sorted(
-                [r for r in jornada_evaluada if r["Diferencia (Edge)"] <= -0.5],
-                key=lambda x: x["Diferencia (Edge)"],
-            )
-
-            st.markdown(
-                '<div class="sec-title">Recomendadas (Over)</div>',
-                unsafe_allow_html=True,
-            )
-            if not recomendadas:
-                st.info("No hay líneas Over con ventaja clara (>= +0.5 tiros) en esta jornada.")
-            else:
-                render_grid_tarjetas(recomendadas)
-
-            if sin_valor:
-                st.markdown(
-                    '<div class="sec-title">Sin valor claro</div>',
-                    unsafe_allow_html=True,
-                )
-                render_grid_tarjetas(sin_valor)
-
-            if under_no_recom:
-                st.markdown(
-                    '<div class="sec-title">Under — No recomendadas</div>',
-                    unsafe_allow_html=True,
-                )
-                render_grid_tarjetas(under_no_recom)
-
     else:
+        conteo_por_liga = {
+            item[1]: sum(1 for j in todas_guardadas if j.get("liga") == item[1])
+            for item in LIGAS_DISPONIBLES
+        }
+        chips_ligas = "".join(
+            f'<span class="chip">{liga_nom}<b>{cant}</b></span>'
+            for liga_nom, cant in conteo_por_liga.items()
+        )
         st.markdown(
-            f'<div class="sec-title">Partido individual en {nombre_liga}</div>',
+            f'<div class="chips"><span class="chip">Total guardadas<b>{total_guardadas}</b></span>{chips_ligas}</div>',
             unsafe_allow_html=True,
         )
-        c_l, c_v = st.sidebar.columns(2)
-        with c_l:
-            local = st.selectbox("Local", equipos, index=0)
-        with c_v:
-            visitante = st.selectbox("Visitante", equipos, index=min(1, len(equipos) - 1))
 
-        linea_loc_ind = st.sidebar.number_input(
-            f"Línea {local}", value=13.5, step=0.5, key="ind_lin_l"
+        filtro_opciones = ["Todas las ligas"] + [item[1] for item in LIGAS_DISPONIBLES]
+        filtro_liga = st.selectbox("Clasificar / Filtrar por liga", filtro_opciones)
+
+        if filtro_liga == "Todas las ligas":
+            jornadas_filtradas = todas_guardadas
+        else:
+            jornadas_filtradas = [j for j in todas_guardadas if j.get("liga") == filtro_liga]
+            if jornadas_filtradas:
+                col_b1, col_b2 = st.columns([1, 4])
+                with col_b1:
+                    if st.button(f"🗑️ Borrar todas ({filtro_liga})", key="borrar_liga_todo"):
+                        eliminar_jornadas_de_liga(filtro_liga)
+                        st.rerun()
+
+        if not jornadas_filtradas:
+            st.info(f"No hay jornadas guardadas para **{filtro_liga}**.")
+        else:
+            for j in jornadas_filtradas:
+                with st.container(border=True):
+                    st.markdown(
+                        f'<div class="saved-header">'
+                        f'<div>'
+                        f'<span class="saved-league-badge">Liga: {j.get("liga", "Sin liga")}</span> '
+                        f'<strong style="font-size:1.1rem; margin-left:8px;">{j.get("titulo", "Jornada")}</strong>'
+                        f'</div>'
+                        f'<span class="saved-meta">Guardada: {j.get("guardada_en", "")} · {len(j.get("filas", []))} líneas</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    col_del, _ = st.columns([1, 5])
+                    with col_del:
+                        if st.button("🗑️ Eliminar jornada", key=f"del_{j['id']}"):
+                            eliminar_jornada_por_id(j["id"])
+                            st.rerun()
+
+                    with st.expander("Ver proyecciones y líneas de esta jornada", expanded=False):
+                        render_secciones_jornada(j.get("filas", []))
+
+else:
+    df = None
+    detalle_error = None
+    try:
+        mtime = os.path.getmtime(archivo_liga)
+        df = cargar_y_normalizar_datos(archivo_liga, mtime)
+    except Exception as e:
+        detalle_error = f"{type(e).__name__}: {e}"
+
+    if df is None or "Equipo" not in df.columns or df.empty:
+        st.error(
+            f"No se pudo cargar el archivo **{archivo_liga}** de **{nombre_liga}**. "
+            "Revisa que el Excel esté en la misma carpeta que la app y que sus hojas "
+            "tengan las columnas de equipo, partidos y tiros."
         )
-        linea_vis_ind = st.sidebar.number_input(
-            f"Línea {visitante}", value=10.5, step=0.5, key="ind_lin_v"
-        )
-        cuota_loc_ind = st.sidebar.number_input(
-            f"Cuota Over {local}", min_value=1.01, value=1.85, step=0.05, key="ind_cuo_l"
-        )
-        cuota_vis_ind = st.sidebar.number_input(
-            f"Cuota Over {visitante}", min_value=1.01, value=1.85, step=0.05, key="ind_cuo_v"
+        if detalle_error:
+            st.caption(f"Detalle técnico: {detalle_error}")
+    elif len(df["Equipo"].unique()) < 2:
+        st.warning(f"La liga **{nombre_liga}** necesita al menos 2 equipos válidos para proyectar.")
+    else:
+        equipos = sorted(df["Equipo"].unique())
+        prom_liga_local = df["Tiros Hechos (local)"].sum() / df["PJ (Local)"].sum()
+        prom_liga_visita = df["Tiros Hechos (visita)"].sum() / df["PJ (Visita)"].sum()
+
+        st.markdown(
+            '<div class="chips">'
+            f'<span class="chip">Liga<b>{nombre_liga}</b></span>'
+            f'<span class="chip">Equipos<b>{len(equipos)}</b></span>'
+            f'<span class="chip">Promedio de local<b>{prom_liga_local:.1f} tiros</b></span>'
+            f'<span class="chip">Promedio de visitante<b>{prom_liga_visita:.1f} tiros</b></span>'
+            "</div>",
+            unsafe_allow_html=True,
         )
 
-        if local != visitante:
-            xs_l, xs_v = proyectar(df, local, visitante, prom_liga_local, prom_liga_visita)
-
+        if modo == "📋 Escáner de Jornada Completa":
             st.markdown(
-                '<div class="cards">'
-                + tarjeta(local, "Local", xs_l, linea_loc_ind, cuota=cuota_loc_ind)
-                + tarjeta(visitante, "Visitante", xs_v, linea_vis_ind, cuota=cuota_vis_ind)
-                + "</div>",
+                f'<div class="sec-title">Jornada de {nombre_liga}</div>',
                 unsafe_allow_html=True,
             )
-            st.caption(
-                f"Total proyectado del partido: {xs_l + xs_v:.2f} tiros. "
-                "Diferencia = tiros proyectados menos la línea."
+
+            max_partidos = max(1, len(equipos) // 2)
+            num_partidos = st.sidebar.slider(
+                "Número de partidos", 1, max_partidos, min(5, max_partidos)
             )
+            jornada_evaluada = []
+
+            for inicio in range(0, num_partidos, 2):
+                fila_cols = st.columns(2, gap="medium")
+                for offset in range(2):
+                    i = inicio + offset
+                    if i >= num_partidos:
+                        break
+
+                    with fila_cols[offset]:
+                        with st.container(border=True):
+                            st.markdown(f"**Partido {i+1}**")
+                            c1, c2 = st.columns(2)
+
+                            with c1:
+                                loc = st.selectbox(
+                                    f"Local P{i+1}",
+                                    equipos,
+                                    index=(i * 2) % len(equipos),
+                                    key=f"loc_{i}",
+                                )
+                            with c2:
+                                vis = st.selectbox(
+                                    f"Visitante P{i+1}",
+                                    equipos,
+                                    index=(i * 2 + 1) % len(equipos),
+                                    key=f"vis_{i}",
+                                )
+
+                            if loc == vis:
+                                st.caption(
+                                    "⚠️ Selecciona dos equipos distintos para proyectar este partido."
+                                )
+                            else:
+                                xs_l, xs_v = proyectar(
+                                    df, loc, vis, prom_liga_local, prom_liga_visita
+                                )
+                                key_l = f"lin_l_{i}"
+                                key_v = f"lin_v_{i}"
+                                firma_key = f"firma_p_{i}"
+                                firma_actual = f"{nombre_liga}|{loc}|{vis}"
+                                sincronizar_lineas_cruce(
+                                    firma_key, firma_actual, key_l, xs_l, key_v, xs_v
+                                )
+
+                                with c1:
+                                    linea_loc = st.number_input(
+                                        f"Línea {loc} (sug. {linea_sugerida_media(xs_l):.1f})",
+                                        min_value=0.5,
+                                        step=0.5,
+                                        key=key_l,
+                                    )
+                                with c2:
+                                    linea_vis = st.number_input(
+                                        f"Línea {vis} (sug. {linea_sugerida_media(xs_v):.1f})",
+                                        min_value=0.5,
+                                        step=0.5,
+                                        key=key_v,
+                                    )
+
+                                dif_l = xs_l - linea_loc
+                                dif_v = xs_v - linea_vis
+
+                                for eq, rol, rival, xs, lin, dif in [
+                                    (f"{loc} (L)", "Local", vis, xs_l, linea_loc, dif_l),
+                                    (f"{vis} (V)", "Visitante", loc, xs_v, linea_vis, dif_v),
+                                ]:
+                                    jornada_evaluada.append(
+                                        {
+                                            "Equipo": eq,
+                                            "Condición": rol,
+                                            "Rival": rival,
+                                            "Tiros Proyectados": xs,
+                                            "Línea Casa": lin,
+                                            "Diferencia (Edge)": dif,
+                                        }
+                                    )
+
+            if jornada_evaluada:
+                with st.container(border=True):
+                    st.markdown(f"**Guardar jornada — Liga: {nombre_liga}**")
+                    g1, g2 = st.columns([3, 1])
+                    with g1:
+                        nombre_jornada = st.text_input(
+                            "Nombre o etiqueta de la jornada (opcional)",
+                            placeholder=f"Ej: Fecha 12 — {nombre_liga}",
+                            key=f"nombre_j_{nombre_liga}",
+                        )
+                    with g2:
+                        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+                        if st.button("💾 Guardar jornada", key=f"btn_guardar_{nombre_liga}"):
+                            registrar_jornada(nombre_liga, nombre_jornada, jornada_evaluada)
+                            st.success(
+                                f"Jornada guardada en **{nombre_liga}**. Quedará guardada hasta que tú la borres."
+                            )
+                            st.rerun()
+
+                render_secciones_jornada(jornada_evaluada)
+
         else:
-            st.warning("Elige dos equipos distintos.")
+            st.markdown(
+                f'<div class="sec-title">Partido individual en {nombre_liga}</div>',
+                unsafe_allow_html=True,
+            )
+            c_l, c_v = st.sidebar.columns(2)
+            with c_l:
+                local = st.selectbox("Local", equipos, index=0)
+            with c_v:
+                visitante = st.selectbox("Visitante", equipos, index=min(1, len(equipos) - 1))
+
+            if local != visitante:
+                xs_l, xs_v = proyectar(df, local, visitante, prom_liga_local, prom_liga_visita)
+                sincronizar_lineas_cruce(
+                    "firma_ind",
+                    f"{nombre_liga}|{local}|{visitante}",
+                    "ind_lin_l",
+                    xs_l,
+                    "ind_lin_v",
+                    xs_v,
+                )
+                linea_loc_ind = st.sidebar.number_input(
+                    f"Línea {local} (sug. {linea_sugerida_media(xs_l):.1f})",
+                    min_value=0.5,
+                    step=0.5,
+                    key="ind_lin_l",
+                )
+                linea_vis_ind = st.sidebar.number_input(
+                    f"Línea {visitante} (sug. {linea_sugerida_media(xs_v):.1f})",
+                    min_value=0.5,
+                    step=0.5,
+                    key="ind_lin_v",
+                )
+
+                st.markdown(
+                    '<div class="cards">'
+                    + tarjeta(local, "Local", xs_l, linea_loc_ind)
+                    + tarjeta(visitante, "Visitante", xs_v, linea_vis_ind)
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    f"Total proyectado del partido: {xs_l + xs_v:.2f} tiros. "
+                    "Diferencia = tiros proyectados menos la línea."
+                )
+            else:
+                st.warning("Elige dos equipos distintos.")
+
+
+
        #python -m streamlit run app.py
